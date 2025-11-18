@@ -1,0 +1,37 @@
+{
+  "name": "ETIAS-MINI-BOT",
+  "description": "ETIAS Whatsapp Bot with commands",
+  "logo": "bot_image.jpg",
+  "keywords": ["bot"],
+  "success_url": "/",
+
+  "env": {
+    "SESSION_ID": {
+      "description": "Put the session-id here.",
+      "required": true
+    },
+    "BUTTON": {
+      "description": "true or false",
+      "required": false
+    },
+    "AUTO_REACT": {
+      "description": "true or false",
+      "required": false
+    },
+    "DELETEMSGSENDTO": {
+      "description": "Your Delete Message Send Number",
+      "required": false
+    },
+    "ALLWAYS_OFFLINE": {
+      "description": "true or false",
+      "required": false
+    }
+},
+
+     "buildpacks": [
+        {
+            "url": "https://github.com/heroku/heroku-buildpack-nodejs.git"
+        }
+     ],
+  "stack": "heroku-24"
+}
