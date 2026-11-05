@@ -21,7 +21,7 @@ async function startSock() {
       /** Enables pairing code mode */
       /** This is the key part */
       registration: {
-        phoneNumber: '263711466227', // <-- Your full phone number here
+        phoneNumber: '263714294311', // <-- Your full phone number here
       },
     },
   });
@@ -46,7 +46,7 @@ async function startSock() {
     if (isNewLogin) {
       console.log("New login detected. Generating pairing code...")
       try {
-        const phoneNumber = "263711466227"; // Your full international phone number
+        const phoneNumber = "263714294311"; // Your full international phone number
         await new Promise(resolve => setTimeout(resolve, 3000)); // wait 3 seconds
         const code = await generatePairingCode(phoneNumber, sock);
         console.log(`🔗 Pairing Code: ${code}`);
