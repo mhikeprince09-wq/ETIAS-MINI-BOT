@@ -6,6 +6,8 @@ app.listen(process.env.PORT || 3000, () => console.log('Server running'));
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 
+let pairingDone = false;
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const sock = makeWASocket({
@@ -17,23 +19,27 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  if (!sock.authState.creds.registered) {
-    const phone = '263714294311';
-    await new Promise(r => setTimeout(r, 3000));
-    try {
-      const code = await sock.requestPairingCode(phone);
-      console.log('🔗 Pairing Code: ' + code);
-      console.log('Open WhatsApp > Linked Devices > Link a Device > Enter this code');
-    } catch (e) {
-      console.log('Pairing failed: ' + e.message);
-    }
-  }
-
-  sock.ev.on('connection.update', (update) => {
+  sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect } = update;
+    
+    // Ask for pairing code ONLY after connection is ready, and only once
+    if (!sock.authState.creds.registered && !pairingDone) {
+      pairingDone = true;
+      await new Promise(r => setTimeout(r, 5000));
+      try {
+        const code = await sock.requestPairingCode('263714294311');
+        console.log('🔗 Pairing Code: ' + code);
+        console.log('Go to WhatsApp > Linked Devices > Link with phone number');
+      } catch (e) {
+        console.log('Pairing failed: ' + e.message);
+        pairingDone = false;
+      }
+    }
+
     if (connection === 'close') {
       console.log('Connection closed. Reconnecting...');
-      startBot();
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      if (shouldReconnect) startBot();
     } else if (connection === 'open') {
       console.log('✅ WhatsApp connected!');
     }
