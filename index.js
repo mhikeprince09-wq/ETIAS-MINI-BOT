@@ -33,7 +33,16 @@ async function startSock() {
       if (shouldReconnect) startSock();
     }
   });
+  // Reply "hie" to any message
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.message || msg.key.fromMe) return;
 
+    const from = msg.key.remoteJid;
+    console.log("📩 Got message from:", from);
+
+    await sock.sendMessage(from, { text: 'hie' });
+  });
   // Pairing code - only if not registered yet
   if (!sock.authState.creds.registered) {
     console.log("New login detected. Generating pairing code...");
