@@ -2,63 +2,49 @@ const express = require('express');
 const app = express();
 app.get('/', (req, res) => res.send('Etias Mini Bot is Live!'));
 app.listen(process.env.PORT || 3000, () => console.log('Server running'));
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
-const P = require('pino');
 
-async function startSock() {
-  const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
-  const { version } = await fetchLatestBaileysVersion();
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const pino = require('pino');
 
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const sock = makeWASocket({
-    version,
-    logger: P({ level: 'silent' }),
-    printQRInTerminal: false,
-    browser: Browsers.macOS('Chrome'),
+    logger: pino({ level: 'silent' }),
     auth: state,
-    generateHighQualityLinkPreview: false,
-    syncFullHistory: false,
-    markOnlineOnConnect: true,
-    connectTimeoutMs: 60000,
-    getMessage: async () => ({}),
+    printQRInTerminal: false,
+    browser: ['Chrome', 'Mac OS', '']
   });
-
-  console.log("🟢 Socket initialized...");
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async (update) => {
+  if (!sock.authState.creds.registered) {
+    const phone = '263714294311';
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const code = await sock.requestPairingCode(phone);
+      console.log('🔗 Pairing Code: ' + code);
+      console.log('Open WhatsApp > Linked Devices > Link a Device > Enter this code');
+    } catch (e) {
+      console.log('Pairing failed: ' + e.message);
+    }
+  }
+
+  sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect } = update;
-    if (connection === 'open') {
+    if (connection === 'close') {
+      console.log('Connection closed. Reconnecting...');
+      startBot();
+    } else if (connection === 'open') {
       console.log('✅ WhatsApp connected!');
     }
-    if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('🔄 Connection closed. Reconnecting...');
-      if (shouldReconnect) startSock();
-    }
   });
-  // Reply "hie" to any message
+
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
-
-    const from = msg.key.remoteJid;
-    console.log("📩 Got message from:", from);
-
-    await sock.sendMessage(from, { text: 'hie' });
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+    console.log('Message: ' + text);
+    await sock.sendMessage(msg.key.remoteJid, { text: 'hie' });
   });
-  // Pairing code - only if not registered yet
-  if (!sock.authState.creds.registered) {
-    console.log("New login detected. Generating pairing code...");
-    try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const code = await sock.requestPairingCode("263714294311");
-      console.log(`🔗 Pairing Code: ${code}`);
-      console.log("📲 Open WhatsApp > Linked Devices > Link a Device > Enter this code");
-    } catch (err) {
-      console.error("❌ Failed to generate pairing code:", err);
-    }
-  }
 }
-
-startSock();
+startBot();
