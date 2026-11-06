@@ -6,40 +6,43 @@ app.listen(process.env.PORT || 3000, () => console.log('Server running'));
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 
-let pairingDone = false;
-
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const sock = makeWASocket({
     logger: pino({ level: 'silent' }),
     auth: state,
     printQRInTerminal: false,
-    browser: ['Chrome', 'Mac OS', '']
+    browser: ['Etias', 'Chrome', '1.0'],
+    connectTimeoutMs: 60000,
   });
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect } = update;
-    
-    // Ask for pairing code ONLY after connection is ready, and only once
-    if (!sock.authState.creds.registered && !pairingDone) {
-      pairingDone = true;
-      await new Promise(r => setTimeout(r, 5000));
+  // Try pairing ONCE, 8 seconds after start - no loop
+  if (!sock.authState.creds.registered) {
+    setTimeout(async () => {
       try {
         const code = await sock.requestPairingCode('263714294311');
         console.log('🔗 Pairing Code: ' + code);
-        console.log('Go to WhatsApp > Linked Devices > Link with phone number');
+        console.log('Enter this in WhatsApp NOW - you have 30 seconds');
       } catch (e) {
         console.log('Pairing failed: ' + e.message);
-        pairingDone = false;
+        console.log('Will retry in 30 seconds - DO NOT redeploy');
       }
-    }
+    }, 8000);
+  }
 
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
     if (connection === 'close') {
-      console.log('Connection closed. Reconnecting...');
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      if (shouldReconnect) startBot();
+      const code = lastDisconnect?.error?.output?.statusCode;
+      console.log('Connection closed, code: ' + code);
+      // Wait 10 sec before reconnect, don't spam
+      if (code !== DisconnectReason.loggedOut) {
+        setTimeout(() => startBot(), 10000);
+      } else {
+        console.log('Logged out - need new pairing');
+      }
     } else if (connection === 'open') {
       console.log('✅ WhatsApp connected!');
     }
