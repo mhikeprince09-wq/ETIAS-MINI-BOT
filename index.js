@@ -1,3 +1,7 @@
+const express = require('express');
+const app = express();
+app.get('/', (req, res) => res.send('Etias Mini Bot is Live!'));
+app.listen(process.env.PORT || 3000, () => console.log('Server running'));
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
 const P = require('pino');
 
